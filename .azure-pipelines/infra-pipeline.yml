@@ -16,53 +16,52 @@ stages:
   - job: TerraformJob
     displayName: 'Provision AWS Infrastructure'
     steps:
-    - task: TerraformInstaller@1
+    - script: |
+        wget -q https://releases.hashicorp.com/terraform/1.7.0/terraform_1.7.0_linux_amd64.zip
+        unzip terraform_1.7.0_linux_amd64.zip
+        sudo mv terraform /usr/local/bin/
+        terraform version
       displayName: 'Install Terraform'
-      inputs:
-        terraformVersion: 'latest'
-
-    - task: TerraformTaskV4@4
-      displayName: 'Terraform Init'
-      inputs:
-        provider: 'aws'
-        command: 'init'
-        workingDirectory: '$(System.DefaultWorkingDirectory)'
-      env:
-        AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
-        AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
-
-    - task: TerraformTaskV4@4
-      displayName: 'Terraform Plan'
-      inputs:
-        provider: 'aws'
-        command: 'plan'
-        workingDirectory: '$(System.DefaultWorkingDirectory)'
-      env:
-        AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
-        AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
-
-    - task: TerraformTaskV4@4
-      displayName: 'Terraform Apply'
-      inputs:
-        provider: 'aws'
-        command: 'apply'
-        workingDirectory: '$(System.DefaultWorkingDirectory)'
-        commandOptions: '-auto-approve'
-      env:
-        AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
-        AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
 
     - script: |
-        terraform output -json > $(Build.ArtifactStagingDirectory)/tf-outputs.json
-        cat $(Build.ArtifactStagingDirectory)/tf-outputs.json
-      displayName: 'Save Terraform Outputs'
+        terraform init
+      displayName: 'Terraform Init'
       workingDirectory: '$(System.DefaultWorkingDirectory)'
       env:
         AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
         AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+        AWS_DEFAULT_REGION: $(AWS_DEFAULT_REGION)
+
+    - script: |
+        terraform plan
+      displayName: 'Terraform Plan'
+      workingDirectory: '$(System.DefaultWorkingDirectory)'
+      env:
+        AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+        AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+        AWS_DEFAULT_REGION: $(AWS_DEFAULT_REGION)
+
+    - script: |
+        terraform apply -auto-approve
+      displayName: 'Terraform Apply'
+      workingDirectory: '$(System.DefaultWorkingDirectory)'
+      env:
+        AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+        AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+        AWS_DEFAULT_REGION: $(AWS_DEFAULT_REGION)
+
+    - script: |
+        terraform output -json > tf-outputs.json
+        cat tf-outputs.json
+      displayName: 'Show Outputs'
+      workingDirectory: '$(System.DefaultWorkingDirectory)'
+      env:
+        AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+        AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+        AWS_DEFAULT_REGION: $(AWS_DEFAULT_REGION)
 
     - task: PublishBuildArtifacts@1
       displayName: 'Publish Outputs'
       inputs:
-        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        PathtoPublish: '$(System.DefaultWorkingDirectory)/tf-outputs.json'
         ArtifactName: 'terraform-outputs'
